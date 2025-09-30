@@ -130,9 +130,10 @@ export default function MobileSearchModal({ isOpen, onClose, onSearch }: MobileS
               搜索小贴士
             </h4>
             <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-              <li>• 支持标题、内容、作者搜索</li>
+              <li>• 至少输入2个字符开始搜索</li>
+              <li>• 支持标题、内容、摘要搜索</li>
               <li>• 支持模糊匹配，不需要完全匹配</li>
-              <li>• 可搜索标签名称</li>
+              <li>• 智能防抖，减少频繁搜索</li>
               <li>• 英文搜索不区分大小写</li>
             </ul>
           </div>

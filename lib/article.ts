@@ -203,20 +203,77 @@ export async function searchArticles(query: string, limit: number = 10): Promise
 
 // 搜索用户自己的文章
 export async function searchUserArticles(userId: string, query: string, limit: number = 10): Promise<SearchResult[]> {
-  const result = await pool.query(
-    `SELECT a.*, u.name as author_name, u.email as author_email,
-            ts_rank(a.search_vector, plainto_tsquery('english', $1)) as rank,
-            ts_headline('english', a.content, plainto_tsquery('english', $1), 'MaxWords=20, MinWords=5') as highlight
-     FROM articles a
-     JOIN users u ON a.user_id = u.id
-     WHERE a.user_id = $3
-       AND a.search_vector @@ plainto_tsquery('english', $1)
-     ORDER BY rank DESC, a.created_at DESC
-     LIMIT $2`,
-    [query, limit, userId]
-  );
+  try {
+    console.log('🔍 Searching articles for userId:', userId, 'query:', query);
+    
+    // 检查用户是否有文章
+    const userArticlesCheck = await pool.query(
+      'SELECT COUNT(*) as count FROM articles WHERE user_id = $1',
+      [userId]
+    );
+    console.log('📊 User has', userArticlesCheck.rows[0].count, 'articles total');
+    
+    // 如果用户没有文章，直接返回空结果
+    if (userArticlesCheck.rows[0].count === '0') {
+      console.log('❌ No articles found for user');
+      return [];
+    }
+    
+    // 检查搜索向量字段
+    const vectorCheck = await pool.query(
+      'SELECT COUNT(*) as count FROM articles WHERE user_id = $1 AND search_vector IS NOT NULL',
+      [userId]
+    );
+    console.log('📈 Articles with search_vector:', vectorCheck.rows[0].count);
+    
+    let result;
+    
+    // 如果有搜索向量，尝试全文搜索
+    if (vectorCheck.rows[0].count > 0) {
+      console.log('🎯 Trying full-text search...');
+      result = await pool.query(
+        `SELECT a.*, u.name as author_name, u.email as author_email,
+                ts_rank(a.search_vector, plainto_tsquery('english', $1)) as rank,
+                ts_headline('english', a.content, plainto_tsquery('english', $1), 'MaxWords=20, MinWords=5') as highlight
+         FROM articles a
+         JOIN users u ON a.user_id = u.id
+         WHERE a.user_id = $3
+           AND a.search_vector IS NOT NULL
+           AND a.search_vector @@ plainto_tsquery('english', $1)
+         ORDER BY rank DESC, a.created_at DESC
+         LIMIT $2`,
+        [query, limit, userId]
+      );
+      console.log('✅ Full-text search results:', result.rows.length);
+    }
 
-  return result.rows;
+    // 如果全文搜索没有结果或不可用，尝试简单的LIKE搜索
+    if (!result || result.rows.length === 0) {
+      console.log('🔄 Falling back to LIKE search...');
+      result = await pool.query(
+        `SELECT a.*, u.name as author_name, u.email as author_email,
+                1 as rank,
+                CASE 
+                  WHEN a.title ILIKE $1 THEN a.title
+                  WHEN a.excerpt ILIKE $1 THEN a.excerpt
+                  ELSE substring(a.content, 1, 100)
+                END as highlight
+         FROM articles a
+         JOIN users u ON a.user_id = u.id
+         WHERE a.user_id = $3
+           AND (a.title ILIKE $1 OR a.content ILIKE $1 OR a.excerpt ILIKE $1)
+         ORDER BY a.created_at DESC
+         LIMIT $2`,
+        [`%${query}%`, limit, userId]
+      );
+      console.log('✅ LIKE search results:', result.rows.length);
+    }
+
+    return result.rows || [];
+  } catch (error) {
+    console.error('❌ Search error:', error);
+    throw error;
+  }
 }
 
 // 获取文章总数

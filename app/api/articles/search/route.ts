@@ -39,10 +39,17 @@ export async function GET(request: NextRequest) {
     // 只搜索当前用户的文章
     const results = await searchUserArticles(payload.userId, query.trim(), limit);
 
+    console.log(`📋 Search API response: query="${query.trim()}", userId=${payload.userId}, results=${results.length}`);
+
     return NextResponse.json({
       query: query.trim(),
       results,
-      total: results.length
+      total: results.length,
+      debug: {
+        userId: payload.userId,
+        searchTerm: query.trim(),
+        resultsCount: results.length
+      }
     });
 
   } catch (error) {

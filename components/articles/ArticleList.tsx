@@ -107,12 +107,21 @@ export default function ArticleList({
       setLoading(true);
       setError(null);
 
+      // 添加认证头
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
       const response = await fetch(
-        `/api/articles/search?q=${encodeURIComponent(searchQuery.trim())}&limit=${limit}`
+        `/api/articles/search?q=${encodeURIComponent(searchQuery.trim())}&limit=${limit}`,
+        { headers }
       );
       
       if (!response.ok) {
-        throw new Error('搜索失败');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || '搜索失败');
       }
 
       const data = await response.json();

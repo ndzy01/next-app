@@ -16,7 +16,7 @@ interface SearchResult {
 }
 
 interface ArticleSearchProps {
-  onSearch?: (query: string, results: SearchResult[]) => void;
+  onSearch?: (query: string, results?: SearchResult[]) => void;
   placeholder?: string;
   showResults?: boolean;
   maxResults?: number;
@@ -35,6 +35,7 @@ export default function ArticleSearch({
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // 初始化搜索历史
   useEffect(() => {
@@ -70,10 +71,30 @@ export default function ArticleSearch({
       return;
     }
 
+    // 取消之前的请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 创建新的 AbortController
+    abortControllerRef.current = new AbortController();
+
     try {
       setLoading(true);
+      
+      // 添加认证头
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      
       const response = await fetch(
-        `/api/articles/search?q=${encodeURIComponent(searchQuery)}&limit=${maxResults}`
+        `/api/articles/search?q=${encodeURIComponent(searchQuery)}&limit=${maxResults}`,
+        { 
+          headers,
+          signal: abortControllerRef.current.signal
+        }
       );
 
       if (response.ok) {
@@ -83,8 +104,20 @@ export default function ArticleSearch({
         if (onSearch) {
           onSearch(searchQuery, data.results);
         }
+      } else {
+        const errorText = await response.text();
+        console.error('Search failed:', errorText);
+        setResults([]);
+        // 如果是401错误，可以显示登录提示
+        if (response.status === 401) {
+          console.warn('搜索需要登录，请检查登录状态');
+        }
       }
     } catch (error) {
+      // 如果请求被取消，不处理错误
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('Search failed:', error);
       setResults([]);
     } finally {
@@ -92,15 +125,21 @@ export default function ArticleSearch({
     }
   }, [maxResults, onSearch]);
 
-  // 防抖搜索
+  // 防抖搜索 - 增加延迟时间，减少最小搜索长度
   const debouncedSearch = useCallback((searchQuery: string) => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
+    // 只有输入长度>=2才进行搜索
+    if (searchQuery.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+
     debounceRef.current = setTimeout(() => {
       performSearch(searchQuery);
-    }, 300);
+    }, 600); // 增加到600ms，减少频繁搜索
   }, [performSearch]);
 
   // 处理输入变化
@@ -108,10 +147,19 @@ export default function ArticleSearch({
     setQuery(value);
     if (value.trim()) {
       setIsOpen(true);
-      debouncedSearch(value);
+      // 只有输入长度>=2才触发搜索
+      if (value.trim().length >= 2) {
+        debouncedSearch(value);
+      } else {
+        setResults([]);
+      }
     } else {
       setResults([]);
       setIsOpen(false);
+      // 清除防抖定时器
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
     }
   };
 
@@ -252,8 +300,15 @@ export default function ArticleSearch({
                 </div>
               )}
 
+              {/* 搜索提示 - 输入长度不足 */}
+              {query && query.trim().length > 0 && query.trim().length < 2 && (
+                <div className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <p>至少输入2个字符开始搜索</p>
+                </div>
+              )}
+
               {/* 无搜索结果 */}
-              {query && results.length === 0 && !loading && (
+              {query && query.trim().length >= 2 && results.length === 0 && !loading && (
                 <div className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
                   没有找到相关文章
                 </div>
@@ -289,7 +344,8 @@ export default function ArticleSearch({
               {/* 空状态 */}
               {!query && searchHistory.length === 0 && (
                 <div className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
-                  输入关键词搜索文章
+                  <p>输入至少2个字符开始搜索</p>
+                  <p className="text-xs mt-1">支持标题、内容和摘要搜索</p>
                 </div>
               )}
             </>

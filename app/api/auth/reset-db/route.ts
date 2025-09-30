@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { resetTables } from '@/lib/reset-tables';
 import { initDatabase } from '@/lib/init-db';
+import { initBlogDatabase } from '@/lib/init-blog-db';
 
 export async function POST() {
   try {
@@ -15,6 +16,9 @@ export async function POST() {
 
     // 重新初始化数据库
     await initDatabase();
+    
+    // 初始化博客数据库表
+    await initBlogDatabase();
 
     return NextResponse.json({ 
       message: 'Database reset and reinitialized successfully with UUID support' 
