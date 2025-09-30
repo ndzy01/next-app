@@ -91,14 +91,27 @@ export default function ArticleEditor({
       return;
     }
 
+    // 修正发布状态逻辑：
+    // - isDraft=true: 保存为草稿 (published=false)
+    // - isDraft=false: 发布文章 (published=true)
+    const publishStatus = !isDraft;
+
+    console.log('保存文章数据:', {
+      title: title.trim(),
+      content: content.trim(),
+      excerpt: excerpt.trim(),
+      tags,
+      published: publishStatus
+    });
+
     await onSave({
       title: title.trim(),
       content: content.trim(),
       excerpt: excerpt.trim(),
       tags,
-      published: isDraft ? false : published
+      published: publishStatus
     });
-  }, [title, content, excerpt, tags, published, onSave]);
+  }, [title, content, excerpt, tags, onSave]);
 
   return (
     <div className="max-w-6xl mx-auto p-3 sm:p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -109,6 +122,7 @@ export default function ArticleEditor({
         </label>
         <input
           type="text"
+          name="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="请输入文章标题..."
@@ -280,7 +294,7 @@ export default function ArticleEditor({
             disabled={saving}
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
           >
-            {saving ? '保存中...' : (mode === 'edit' ? '更新文章' : '发布文章')}
+            {saving ? '保存中...' : (mode === 'edit' ? '发布文章' : '发布文章')}
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { getArticleById, updateArticle, deleteArticle } from '@/lib/article';
+import { getArticleById, getArticleByIdWithPermission, updateArticle, deleteArticle } from '@/lib/article';
 import { getArticleTags, setArticleTagsByNames } from '@/lib/tag';
 
 interface RouteParams {
@@ -14,29 +14,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    const article = await getArticleById(id);
+    // 获取用户token以进行权限检查
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    let currentUserId = null;
+
+    if (token) {
+      const payload = verifyToken(token);
+      if (payload) {
+        currentUserId = payload.userId;
+      }
+    }
+
+    // 使用权限检查获取文章
+    const article = await getArticleByIdWithPermission(id, currentUserId || undefined);
     if (!article) {
-      return NextResponse.json({ error: '文章不存在' }, { status: 404 });
+      return NextResponse.json({ error: '文章不存在或无权访问' }, { status: 404 });
     }
 
     // 获取文章标签
     const tags = await getArticleTags(id);
-
-    // 检查是否为私人文章
-    if (!article.published) {
-      // 验证用户认证
-      const authHeader = request.headers.get('authorization');
-      const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-      if (!token) {
-        return NextResponse.json({ error: '文章未发布' }, { status: 403 });
-      }
-
-      const payload = verifyToken(token);
-      if (!payload || payload.userId !== article.user_id) {
-        return NextResponse.json({ error: '无权访问此文章' }, { status: 403 });
-      }
-    }
 
     return NextResponse.json({
       article: {

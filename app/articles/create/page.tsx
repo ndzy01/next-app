@@ -44,12 +44,18 @@ function CreateArticlePage() {
       }
 
       const data = await response.json();
+      console.log('文章保存成功:', data);
       
       // 显示成功消息
-      alert(articleData.published ? '文章发布成功！' : '文章保存为草稿成功！');
+      const successMessage = articleData.published ? '文章发布成功！' : '文章保存为草稿成功！';
+      alert(successMessage);
       
-      // 跳转到文章详情页
-      router.push(`/articles/${data.article.id}`);
+      // 跳转到文章列表页面而不是详情页，确保用户能看到文章
+      if (articleData.published) {
+        router.push('/articles?tab=published');
+      } else {
+        router.push('/articles?tab=drafts');
+      }
       
     } catch (error) {
       console.error('Save article error:', error);

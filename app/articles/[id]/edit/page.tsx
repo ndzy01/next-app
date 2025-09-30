@@ -93,7 +93,13 @@ function ArticleEditPage() {
   };
 
   // 保存文章
-  const handleSave = async (data: ArticleFormData, saveAsPublished: boolean = false) => {
+  const handleSave = async (data: {
+    title: string;
+    content: string;
+    excerpt: string;
+    tags: string[];
+    published: boolean;
+  }) => {
     try {
       setSaving(true);
       setError(null);
@@ -124,7 +130,7 @@ function ArticleEditPage() {
         title: data.title.trim(),
         content: data.content,
         excerpt: excerpt,
-        published: saveAsPublished,
+        published: data.published, // 直接使用传入的published状态
         tags: data.tags.filter(tag => tag.trim()).map(tag => tag.trim())
       };
 
@@ -145,10 +151,10 @@ function ArticleEditPage() {
       const result = await response.json();
       
       // 更新本地状态
-      setFormData(prev => ({ ...prev, published: saveAsPublished }));
+      setFormData(prev => ({ ...prev, published: data.published }));
       
       // 提示用户并跳转
-      const message = saveAsPublished 
+      const message = data.published 
         ? '文章已发布！' 
         : '文章已保存为草稿！';
       

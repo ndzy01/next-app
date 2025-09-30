@@ -3,9 +3,61 @@
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { withRequiredAuth } from '@/lib/with-auth';
+import { useState, useEffect } from 'react';
+
+interface ArticleStats {
+  total: number;
+  published: number;
+  drafts: number;
+}
 
 function DashboardPage() {
   const { user, logout } = useAuth();
+  const [articleStats, setArticleStats] = useState<ArticleStats>({
+    total: 0,
+    published: 0,
+    drafts: 0
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // 获取文章统计
+  useEffect(() => {
+    const fetchArticleStats = async () => {
+      if (!user) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        // 获取所有文章
+        const allResponse = await fetch(`/api/articles?userId=${user.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        // 获取已发布文章
+        const publishedResponse = await fetch(`/api/articles?userId=${user.id}&published=true`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (allResponse.ok && publishedResponse.ok) {
+          const allData = await allResponse.json();
+          const publishedData = await publishedResponse.json();
+          
+          const total = allData.articles.length;
+          const published = publishedData.articles.length;
+          const drafts = total - published;
+
+          setArticleStats({ total, published, drafts });
+        }
+      } catch (error) {
+        console.error('获取文章统计失败:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchArticleStats();
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -46,6 +98,69 @@ function DashboardPage() {
       {/* 主要内容 */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
+          {/* 文章统计 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
+                      <svg className="h-5 w-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">总文章数</p>
+                    <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                      {statsLoading ? '...' : articleStats.total}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                      <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">已发布</p>
+                    <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                      {statsLoading ? '...' : articleStats.published}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
+                      <svg className="h-5 w-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">草稿</p>
+                    <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                      {statsLoading ? '...' : articleStats.drafts}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* 快速操作 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Link href="/articles" className="group">

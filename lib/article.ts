@@ -67,6 +67,30 @@ export async function getArticleById(id: string): Promise<ArticleWithAuthor | nu
   return result.rows[0];
 }
 
+// 根据ID获取文章（带权限检查）
+export async function getArticleByIdWithPermission(id: string, userId?: string): Promise<ArticleWithAuthor | null> {
+  const result = await pool.query(
+    `SELECT a.*, u.name as author_name, u.email as author_email
+     FROM articles a
+     JOIN users u ON a.user_id = u.id
+     WHERE a.id = $1`,
+    [id]
+  );
+  
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const article = result.rows[0];
+  
+  // 如果文章未发布，只有作者可以访问
+  if (!article.published && (!userId || article.user_id !== userId)) {
+    return null;
+  }
+  
+  return article;
+}
+
 // 更新文章
 export async function updateArticle(id: string, userId: string, updates: UpdateArticleData): Promise<Article> {
   // 验证文章归属
@@ -172,6 +196,24 @@ export async function searchArticles(query: string, limit: number = 10): Promise
      ORDER BY rank DESC, a.created_at DESC
      LIMIT $2`,
     [query, limit]
+  );
+
+  return result.rows;
+}
+
+// 搜索用户自己的文章
+export async function searchUserArticles(userId: string, query: string, limit: number = 10): Promise<SearchResult[]> {
+  const result = await pool.query(
+    `SELECT a.*, u.name as author_name, u.email as author_email,
+            ts_rank(a.search_vector, plainto_tsquery('english', $1)) as rank,
+            ts_headline('english', a.content, plainto_tsquery('english', $1), 'MaxWords=20, MinWords=5') as highlight
+     FROM articles a
+     JOIN users u ON a.user_id = u.id
+     WHERE a.user_id = $3
+       AND a.search_vector @@ plainto_tsquery('english', $1)
+     ORDER BY rank DESC, a.created_at DESC
+     LIMIT $2`,
+    [query, limit, userId]
   );
 
   return result.rows;

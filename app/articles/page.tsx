@@ -17,7 +17,7 @@ function ArticlesPage() {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [showUserOnly, setShowUserOnly] = useState(false);
+  const [showUserOnly] = useState(true); // 用户只能看到自己的文章
   const [showUnpublished, setShowUnpublished] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
@@ -26,8 +26,17 @@ function ArticlesPage() {
   // 同步URL搜索参数
   useEffect(() => {
     const query = searchParams.get('q');
+    const tab = searchParams.get('tab');
+    
     if (query) {
       setSearchQuery(query);
+    }
+    
+    // 根据URL参数设置标签页
+    if (tab === 'drafts') {
+      setShowUnpublished(true);
+    } else if (tab === 'published') {
+      setShowUnpublished(false);
     }
   }, [searchParams]);
 
@@ -118,14 +127,35 @@ function ArticlesPage() {
             {/* 标题和描述 */}
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
-                {showUserOnly ? '我的文章' : '所有文章'}
+                我的文章
               </h1>
               <p className="mt-1 lg:mt-2 text-sm lg:text-base text-gray-600 dark:text-gray-400">
-                {showUserOnly 
-                  ? '管理您的文章，包括草稿和已发布的内容' 
-                  : '发现和阅读精彩的文章内容'
-                }
+                管理您的文章，包括草稿和已发布的内容
               </p>
+            </div>
+
+            {/* 文章状态切换 */}
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-1 inline-flex">
+              <button
+                onClick={() => setShowUnpublished(false)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  !showUnpublished
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                已发布
+              </button>
+              <button
+                onClick={() => setShowUnpublished(true)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  showUnpublished
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                草稿
+              </button>
             </div>
             
             {/* 操作按钮 - 移动端垂直排列，桌面端水平排列 */}
@@ -150,9 +180,9 @@ function ArticlesPage() {
               >
                 <Filter size={20} className="mr-2" />
                 筛选器
-                {(selectedTags.length > 0 || showUserOnly || showUnpublished) && (
+                {(selectedTags.length > 0 || showUnpublished) && (
                   <span className="ml-2 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full dark:bg-indigo-900 dark:text-indigo-200">
-                    {[selectedTags.length > 0 ? '标签' : null, showUserOnly ? '我的' : null, showUnpublished ? '草稿' : null].filter(Boolean).length}
+                    {[selectedTags.length > 0 ? '标签' : null, showUnpublished ? '草稿' : null].filter(Boolean).length}
                   </span>
                 )}
               </button>
@@ -166,58 +196,40 @@ function ArticlesPage() {
             <div className="p-4 lg:p-6">
               {/* 移动端垂直布局，桌面端网格布局 */}
               <div className="space-y-6 lg:grid lg:grid-cols-4 lg:gap-6 lg:space-y-0">
-                {/* 文章范围 */}
+                {/* 文章状态 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    📂 文章范围
+                    � 文章状态
                   </label>
                   <div className="space-y-3">
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="scope"
-                        checked={!showUserOnly}
-                        onChange={() => setShowUserOnly(false)}
+                        name="status"
+                        checked={!showUnpublished}
+                        onChange={() => setShowUnpublished(false)}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
                       />
                       <span className="ml-3 text-sm text-gray-700 dark:text-gray-300">
-                        所有文章
+                        已发布
                       </span>
                     </label>
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="scope"
-                        checked={showUserOnly}
-                        onChange={() => setShowUserOnly(true)}
+                        name="status"
+                        checked={showUnpublished}
+                        onChange={() => setShowUnpublished(true)}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
                       />
                       <span className="ml-3 text-sm text-gray-700 dark:text-gray-300">
-                        我的文章
+                        草稿
                       </span>
                     </label>
                   </div>
                 </div>
 
-                {/* 发布状态 */}
-                {showUserOnly && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      📝 发布状态
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={showUnpublished}
-                        onChange={(e) => setShowUnpublished(e.target.checked)}
-                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
-                      />
-                      <span className="ml-3 text-sm text-gray-700 dark:text-gray-300">
-                        包含草稿
-                      </span>
-                    </label>
-                  </div>
-                )}
+
 
                 {/* 标签过滤 */}
                 <div className="lg:col-span-2">
@@ -271,11 +283,10 @@ function ArticlesPage() {
                 </div>
 
                 {/* 清除筛选 */}
-                {(selectedTags.length > 0 || showUserOnly || showUnpublished) && (
+                {(selectedTags.length > 0 || showUnpublished) && (
                   <button
                     onClick={() => {
                       setSelectedTags([]);
-                      setShowUserOnly(false);
                       setShowUnpublished(false);
                       setSearchQuery('');
                     }}

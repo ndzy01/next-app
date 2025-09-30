@@ -17,28 +17,23 @@ export async function GET(request: NextRequest) {
     
     const offset = (page - 1) * limit;
 
-    // 获取用户token以确定是否为私人请求
+    // 验证用户认证 - 必须登录才能访问文章列表
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    let currentUser = null;
-
-    if (token) {
-      const payload = verifyToken(token);
-      if (payload) {
-        currentUser = payload;
-      }
+    
+    if (!token) {
+      return NextResponse.json({ error: '需要登录才能访问文章' }, { status: 401 });
     }
 
-    let articles;
-
-    if (userId && currentUser && currentUser.userId === userId) {
-      // 获取当前用户的文章（包括草稿）
-      const publishedFilter = published === 'true' ? true : published === 'false' ? false : undefined;
-      articles = await getUserArticles(userId, publishedFilter);
-    } else {
-      // 获取公开文章
-      articles = await getPublishedArticles(limit, offset);
+    const payload = verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ error: '无效的访问令牌' }, { status: 401 });
     }
+
+    // 用户只能获取自己的文章
+    const currentUserId = payload.userId;
+    const publishedFilter = published === 'true' ? true : published === 'false' ? false : undefined;
+    const articles = await getUserArticles(currentUserId, publishedFilter);
 
     return NextResponse.json({
       articles,

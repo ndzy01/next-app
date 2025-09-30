@@ -53,25 +53,30 @@ export default function ArticleList({
       if (showUserOnly && user) {
         url += `&userId=${user.id}`;
         if (showUnpublished) {
-          // 不添加published参数，获取所有文章
+          // 只获取草稿文章
+          url += `&published=false`;
         } else {
+          // 只获取已发布文章
           url += `&published=true`;
         }
+      } else if (!showUserOnly) {
+        // 只获取公开发布的文章
+        url += `&published=true`;
       }
 
       const headers: Record<string, string> = {};
       
-      if (user) {
-        const token = localStorage.getItem('token');
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
+      // 总是尝试添加认证头，用于权限检查
+      const token = localStorage.getItem('token');
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
       }
 
       const response = await fetch(url, { headers });
       
       if (!response.ok) {
-        throw new Error('获取文章列表失败');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || '获取文章列表失败');
       }
 
       const data = await response.json();
@@ -84,6 +89,7 @@ export default function ArticleList({
       
       setHasMore(data.articles.length === limit);
     } catch (err) {
+      console.error('获取文章列表错误:', err);
       setError(err instanceof Error ? err.message : '获取文章列表失败');
     } finally {
       setLoading(false);

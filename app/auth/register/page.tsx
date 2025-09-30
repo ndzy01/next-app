@@ -33,7 +33,10 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      console.log('开始注册流程...');
       await register(formData.name, formData.email, formData.password);
+      console.log('注册成功，正在跳转...');
+      // 注册成功后的跳转由auth-context处理
     } catch (error) {
       console.error('Register error:', error);
       if (error instanceof Error) {

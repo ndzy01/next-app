@@ -104,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 注册
   const register = async (name: string, email: string, password: string) => {
+    console.log('执行注册API请求...');
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: {
@@ -113,17 +114,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const data = await response.json();
+    console.log('注册API响应:', { status: response.status, data });
 
     if (!response.ok) {
       throw new Error(data.error || '注册失败');
     }
 
     // 存储token并设置用户信息
+    console.log('保存token和用户信息...');
     setToken(data.token);
     setUser(data.user);
     
     // 导航到dashboard
-    router.push('/dashboard');
+    console.log('准备跳转到dashboard...');
+    try {
+      await router.push('/dashboard');
+      console.log('跳转成功');
+    } catch (routerError) {
+      console.error('路由跳转失败:', routerError);
+      // 如果路由跳转失败，使用window.location
+      if (typeof window !== 'undefined') {
+        window.location.href = '/dashboard';
+      }
+    }
   };
 
   // 退出登录
