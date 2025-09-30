@@ -141,21 +141,3 @@ export default function MobileSearchModal({ isOpen, onClose, onSearch }: MobileS
     </div>
   );
 }
-
-// 添加动画样式（如果需要的话，可以在全局CSS中添加）
-const styles = `
-@keyframes slide-down {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.animate-slide-down {
-  animation: slide-down 0.3s ease-out;
-}
-`;

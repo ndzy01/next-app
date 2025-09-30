@@ -211,7 +211,7 @@ export default function TagSelector({
                   className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2 text-indigo-600 dark:text-indigo-400"
                 >
                   <Plus size={16} />
-                  <span>创建 "{searchQuery}"</span>
+                  <span>创建 &ldquo;{searchQuery}&rdquo;</span>
                 </button>
               )}
 

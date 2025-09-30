@@ -8,7 +8,6 @@ import {
   Menu, 
   X, 
   Home, 
-  PenTool, 
   FileText, 
   User, 
   LogOut,

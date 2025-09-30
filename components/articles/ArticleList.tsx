@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import ArticleCard from '@/components/articles/ArticleCard';
@@ -43,7 +43,7 @@ export default function ArticleList({
   const [hasMore, setHasMore] = useState(true);
 
   // 获取文章列表
-  const fetchArticles = async (pageNum = 1, reset = true) => {
+  const fetchArticles = useCallback(async (pageNum = 1, reset = true) => {
     try {
       setLoading(true);
       setError(null);
@@ -94,10 +94,10 @@ export default function ArticleList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit, showUserOnly, user, showUnpublished]);
 
   // 搜索文章
-  const searchArticles = async () => {
+  const searchArticles = useCallback(async () => {
     if (!searchQuery.trim()) {
       fetchArticles(1, true);
       return;
@@ -123,7 +123,7 @@ export default function ArticleList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, limit, fetchArticles]);
 
   // 过滤标签
   const filterByTags = (articleList: Article[]) => {
@@ -184,7 +184,7 @@ export default function ArticleList({
       setPage(1);
       fetchArticles(1, true);
     }
-  }, [showUserOnly, showUnpublished, searchQuery]);
+  }, [showUserOnly, showUnpublished, searchQuery, searchArticles, fetchArticles]);
 
   // 过滤后的文章列表
   const filteredArticles = filterByTags(articles);

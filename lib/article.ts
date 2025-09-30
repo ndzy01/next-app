@@ -155,7 +155,7 @@ export async function deleteArticle(id: string, userId: string): Promise<void> {
 // 获取用户文章
 export async function getUserArticles(userId: string, published?: boolean): Promise<Article[]> {
   let query = 'SELECT * FROM articles WHERE user_id = $1';
-  const params: any[] = [userId];
+  const params: (string | boolean)[] = [userId];
 
   if (published !== undefined) {
     query += ' AND published = $2';
@@ -222,7 +222,7 @@ export async function searchUserArticles(userId: string, query: string, limit: n
 // 获取文章总数
 export async function getArticlesCount(published?: boolean): Promise<number> {
   let query = 'SELECT COUNT(*) FROM articles';
-  const params: any[] = [];
+  const params: boolean[] = [];
 
   if (published !== undefined) {
     query += ' WHERE published = $1';

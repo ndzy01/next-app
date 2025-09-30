@@ -71,6 +71,7 @@ export async function validateUser(loginData: LoginData): Promise<User | null> {
   }
   
   // 返回用户信息（不包含密码）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password: _, ...userWithoutPassword } = user;
   return userWithoutPassword;
 }

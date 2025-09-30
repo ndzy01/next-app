@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { withAuth } from '@/lib/with-auth';
 import ArticleEditor from '@/components/articles/ArticleEditor';
-import { ArrowLeft, Save, Eye } from 'lucide-react';
+import { ArrowLeft, Eye } from 'lucide-react';
 
 interface Article {
   id: string;
@@ -48,7 +48,7 @@ function ArticleEditPage() {
   });
 
   // 获取文章详情
-  const fetchArticle = async () => {
+  const fetchArticle = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -82,7 +82,7 @@ function ArticleEditPage() {
         content: articleData.content,
         excerpt: articleData.excerpt || '',
         published: articleData.published,
-        tags: articleData.tags?.map((tag: any) => tag.name) || []
+        tags: articleData.tags?.map((tag: { id: string; name: string }) => tag.name) || []
       });
 
     } catch (err) {
@@ -90,7 +90,7 @@ function ArticleEditPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [articleId]);
 
   // 保存文章
   const handleSave = async (data: {
@@ -148,7 +148,7 @@ function ArticleEditPage() {
         throw new Error(errorData.error || '更新文章失败');
       }
 
-      const result = await response.json();
+      await response.json();
       
       // 更新本地状态
       setFormData(prev => ({ ...prev, published: data.published }));
@@ -180,7 +180,7 @@ function ArticleEditPage() {
     if (articleId) {
       fetchArticle();
     }
-  }, [articleId]);
+  }, [articleId, fetchArticle]);
 
   if (loading) {
     return (
@@ -305,7 +305,7 @@ function ArticleEditPage() {
           </h3>
           <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
             <li>• 支持 Markdown 语法，实时预览效果</li>
-            <li>• 修改后点击"保存草稿"暂存，或"发布文章"立即发布</li>
+            <li>• 修改后点击&ldquo;保存草稿&rdquo;暂存，或&ldquo;发布文章&rdquo;立即发布</li>
             <li>• 标签用逗号或回车分隔，系统会自动处理重复标签</li>
             <li>• 如果不填写摘要，系统会自动从内容中提取前200字符</li>
             <li>• 草稿状态的文章只有作者可见，发布后所有人可见</li>

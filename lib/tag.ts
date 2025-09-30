@@ -1,4 +1,5 @@
 import pool from './db';
+import { Article } from './article';
 
 export interface Tag {
   id: string;
@@ -112,7 +113,7 @@ export async function setArticleTagsByNames(articleId: string, tagNames: string[
 }
 
 // 根据标签获取文章
-export async function getArticlesByTag(tagId: string, limit: number = 20, offset: number = 0): Promise<any[]> {
+export async function getArticlesByTag(tagId: string, limit: number = 20, offset: number = 0): Promise<Article[]> {
   const result = await pool.query(`
     SELECT a.*, u.name as author_name, u.email as author_email
     FROM articles a

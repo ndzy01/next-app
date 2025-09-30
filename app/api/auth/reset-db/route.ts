@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { resetTables } from '@/lib/reset-tables';
 import { initDatabase } from '@/lib/init-db';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // 重置表
     const resetResult = await resetTables();

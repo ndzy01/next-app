@@ -10,7 +10,7 @@ import ArticleSearch from '@/components/articles/ArticleSearch';
 import TagSelector from '@/components/tags/TagSelector';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import MobileSearchModal from '@/components/layout/MobileSearchModal';
-import { Search, Plus, Filter, Grid, List } from 'lucide-react';
+import { Plus, Filter, Grid, List } from 'lucide-react';
 
 function ArticlesPage() {
   const { user } = useAuth();

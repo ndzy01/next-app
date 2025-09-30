@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { ArrowLeft, Edit, Trash2, Calendar, User, Eye, EyeOff, Share2 } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Calendar, User, EyeOff, Share2 } from 'lucide-react';
 import { MdPreview } from 'md-editor-rt';
 import 'md-editor-rt/lib/preview.css';
 import Fuse from 'fuse.js';
@@ -33,7 +33,6 @@ export default function ArticleDetailPage() {
   const searchParams = useSearchParams();
   const articleId = params.id as string;
   const searchQuery = searchParams.get('q');
-  const highlightSection = searchParams.get('highlight');
 
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +41,7 @@ export default function ArticleDetailPage() {
   const [highlightedContent, setHighlightedContent] = useState<string>('');
 
   // 获取文章详情
-  const fetchArticle = async () => {
+  const fetchArticle = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -79,7 +78,7 @@ export default function ArticleDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [articleId, searchQuery]);
 
   // 搜索高亮处理
   const highlightSearchResults = (content: string, query: string) => {
@@ -99,7 +98,7 @@ export default function ArticleDetailPage() {
     const matches = fuse.search(query);
     
     if (matches.length > 0) {
-      let highlightedLines = [...contentLines];
+      const highlightedLines = [...contentLines];
       
       // 高亮匹配的行
       matches.forEach(match => {
@@ -172,7 +171,7 @@ export default function ArticleDetailPage() {
           text: article?.excerpt || article?.title,
           url: url
         });
-      } catch (err) {
+      } catch {
         // 用户取消分享或其他错误
       }
     } else {
@@ -180,7 +179,7 @@ export default function ArticleDetailPage() {
       try {
         await navigator.clipboard.writeText(url);
         alert('链接已复制到剪贴板');
-      } catch (err) {
+      } catch {
         // 降级：显示链接
         prompt('复制链接:', url);
       }
@@ -203,7 +202,7 @@ export default function ArticleDetailPage() {
     if (articleId) {
       fetchArticle();
     }
-  }, [articleId]);
+  }, [articleId, fetchArticle]);
 
   // 检查是否为作者
   const isAuthor = user?.id === article?.user_id;

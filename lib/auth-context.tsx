@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // 获取用户信息
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const token = getToken();
       if (!token) {
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       removeToken();
     }
-  };
+  }, []);
 
   // 登录
   const login = async (email: string, password: string) => {
@@ -158,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     initAuth();
-  }, []);
+  }, [fetchUser]);
 
   const value = {
     user,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { createArticle, getPublishedArticles, getUserArticles } from '@/lib/article';
+import { createArticle, getUserArticles } from '@/lib/article';
 import { setArticleTagsByNames } from '@/lib/tag';
 import { initBlogDatabase } from '@/lib/init-blog-db';
 
@@ -12,10 +12,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
-    const userId = searchParams.get('userId');
     const published = searchParams.get('published');
-    
-    const offset = (page - 1) * limit;
 
     // 验证用户认证 - 必须登录才能访问文章列表
     const authHeader = request.headers.get('authorization');

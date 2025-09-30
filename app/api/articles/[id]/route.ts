@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { getArticleById, getArticleByIdWithPermission, updateArticle, deleteArticle } from '@/lib/article';
+import { getArticleByIdWithPermission, updateArticle, deleteArticle } from '@/lib/article';
 import { getArticleTags, setArticleTagsByNames } from '@/lib/tag';
 
 interface RouteParams {
