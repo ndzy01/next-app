@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { getArticleTags, setArticleTagsByNames } from '@/lib/tag';
-import { getArticleById } from '@/lib/article';
+import { getArticleByIdWithPermission } from '@/lib/article';
 
 interface RouteParams {
   params: Promise<{
@@ -14,25 +14,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    // 检查文章是否存在
-    const article = await getArticleById(id);
-    if (!article) {
-      return NextResponse.json({ error: '文章不存在' }, { status: 404 });
+    // 获取用户token以进行权限检查
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    let currentUserId = null;
+
+    if (token) {
+      const payload = verifyToken(token);
+      if (payload) {
+        currentUserId = payload.userId;
+      }
     }
 
-    // 如果是未发布的文章，需要验证权限
-    if (!article.published) {
-      const authHeader = request.headers.get('authorization');
-      const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-      if (!token) {
-        return NextResponse.json({ error: '文章未发布' }, { status: 403 });
-      }
-
-      const payload = verifyToken(token);
-      if (!payload || payload.userId !== article.user_id) {
-        return NextResponse.json({ error: '无权访问此文章' }, { status: 403 });
-      }
+    // 使用权限检查获取文章
+    const article = await getArticleByIdWithPermission(id, currentUserId || undefined);
+    if (!article) {
+      return NextResponse.json({ error: '文章不存在或无权访问' }, { status: 404 });
     }
 
     const tags = await getArticleTags(id);
@@ -65,14 +62,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: '无效的访问令牌' }, { status: 401 });
     }
 
-    // 检查文章是否存在且用户有权限
-    const article = await getArticleById(id);
+    // 使用权限检查获取文章
+    const article = await getArticleByIdWithPermission(id, payload.userId);
     if (!article) {
-      return NextResponse.json({ error: '文章不存在' }, { status: 404 });
-    }
-
-    if (article.user_id !== payload.userId) {
-      return NextResponse.json({ error: '无权修改此文章的标签' }, { status: 403 });
+      return NextResponse.json({ error: '文章不存在或无权访问' }, { status: 404 });
     }
 
     const body = await request.json();

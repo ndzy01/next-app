@@ -37,6 +37,19 @@ export async function initBlogDatabase() {
       )
     `);
 
+    // 创建文章状态历史表
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS article_status_history (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        article_id UUID NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+        from_status VARCHAR(20) NOT NULL,
+        to_status VARCHAR(20) NOT NULL,
+        changed_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // 为文章表创建更新时间触发器
     await pool.query(`
       DROP TRIGGER IF EXISTS update_articles_updated_at ON articles;
@@ -81,6 +94,14 @@ export async function initBlogDatabase() {
     
     await pool.query(`
       CREATE INDEX IF NOT EXISTS articles_created_at_idx ON articles(created_at DESC);
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS article_status_history_article_id_idx ON article_status_history(article_id);
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS article_status_history_created_at_idx ON article_status_history(created_at DESC);
     `);
 
     console.log('Blog database tables initialized successfully');

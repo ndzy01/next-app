@@ -7,7 +7,8 @@ import { useAuth } from '@/lib/auth-context';
 import { ArrowLeft, Edit, Trash2, Calendar, User, EyeOff, Share2 } from 'lucide-react';
 import { MdPreview } from 'md-editor-rt';
 import 'md-editor-rt/lib/preview.css';
-import Fuse from 'fuse.js';
+import SearchLocation from '@/components/articles/SearchLocation';
+import { parseSearchParams, shouldPerformSearchLocation, performSearchLocation } from '@/lib/search-utils';
 
 interface Article {
   id: string;
@@ -32,13 +33,17 @@ export default function ArticleDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const articleId = params.id as string;
-  const searchQuery = searchParams.get('q');
+  
+  // 解析搜索参数
+  const searchKeyword = searchParams.get('search') || '';
+  const shouldHighlight = searchParams.get('highlight') === 'true';
 
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [highlightedContent, setHighlightedContent] = useState<string>('');
+  const [showSearchLocation, setShowSearchLocation] = useState(false);
 
   // 获取文章详情
   const fetchArticle = useCallback(async () => {
@@ -67,8 +72,8 @@ export default function ArticleDetailPage() {
       setArticle(data.article);
       
       // 处理搜索高亮
-      if (searchQuery && data.article.content) {
-        highlightSearchResults(data.article.content, searchQuery);
+      if (searchKeyword && data.article.content) {
+        highlightSearchResults(data.article.content, searchKeyword);
       } else {
         setHighlightedContent(data.article.content);
       }
@@ -78,7 +83,7 @@ export default function ArticleDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [articleId, searchQuery]);
+  }, [articleId, searchKeyword]);
 
   // 搜索高亮处理
   const highlightSearchResults = (content: string, query: string) => {
@@ -87,41 +92,25 @@ export default function ArticleDetailPage() {
       return;
     }
 
-    // 使用Fuse.js进行模糊匹配
-    const contentLines = content.split('\n');
-    const fuse = new Fuse(contentLines.map((line, index) => ({ line, index })), {
-      keys: ['line'],
-      includeMatches: true,
-      threshold: 0.3
-    });
-
-    const matches = fuse.search(query);
+    // 使用简单的正则表达式高亮
+    const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+    const highlighted = content.replace(regex, '<mark class="search-highlight">$1</mark>');
+    setHighlightedContent(highlighted);
     
-    if (matches.length > 0) {
-      const highlightedLines = [...contentLines];
+    // 显示搜索定位组件
+    if (shouldHighlight) {
+      setShowSearchLocation(true);
       
-      // 高亮匹配的行
-      matches.forEach(match => {
-        const lineIndex = match.item.index;
-        if (match.matches && match.matches[0]) {
-          const originalLine = contentLines[lineIndex];
-          const regex = new RegExp(`(${query})`, 'gi');
-          highlightedLines[lineIndex] = originalLine.replace(regex, '<mark style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">$1</mark>');
-        }
-      });
-      
-      setHighlightedContent(highlightedLines.join('\n'));
-      
-      // 滚动到第一个匹配项
+      // 延迟执行搜索定位，确保DOM已渲染
       setTimeout(() => {
-        const firstMark = document.querySelector('mark');
-        if (firstMark) {
-          firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 500);
-    } else {
-      setHighlightedContent(content);
+        performSearchLocation(query);
+      }, 1000);
     }
+  };
+
+  // 转义正则表达式特殊字符
+  const escapeRegExp = (string: string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   };
 
   // 删除文章
@@ -351,11 +340,16 @@ export default function ArticleDetailPage() {
         </header>
 
         {/* 搜索提示 */}
-        {searchQuery && (
+        {searchKeyword && (
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              🔍 搜索关键词：<strong>{searchQuery}</strong>，已高亮显示匹配内容
+              🔍 搜索关键词：<strong>{searchKeyword}</strong>，已高亮显示匹配内容
             </p>
+            {shouldHighlight && (
+              <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                使用右上角的搜索定位工具浏览所有匹配位置
+              </p>
+            )}
           </div>
         )}
 
@@ -390,6 +384,14 @@ export default function ArticleDetailPage() {
           </div>
         </footer>
       </article>
+
+      {/* 搜索定位组件 */}
+      {showSearchLocation && searchKeyword && (
+        <SearchLocation 
+          keyword={searchKeyword} 
+          onClose={() => setShowSearchLocation(false)}
+        />
+      )}
     </div>
   );
 }

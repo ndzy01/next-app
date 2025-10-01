@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { MdEditor } from 'md-editor-rt';
 import 'md-editor-rt/lib/style.css';
+import { ArticleStatus, booleanToStatus, canPublish } from '@/lib/article-status';
 
 interface ArticleEditorProps {
   title?: string;
@@ -39,6 +40,7 @@ export default function ArticleEditor({
   const [tags, setTags] = useState<string[]>(initialTags);
   const [published, setPublished] = useState(initialPublished);
   const [tagInput, setTagInput] = useState('');
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
   // 处理标签添加
   const handleAddTag = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -80,8 +82,18 @@ export default function ArticleEditor({
     setExcerpt(generatedExcerpt);
   }, [content]);
 
-  // 保存处理
-  const handleSave = useCallback(async (isDraft = false) => {
+  // 检查是否可以发布
+  const canPublishArticle = useCallback(() => {
+    const articleData = {
+      title: title.trim(),
+      content: content.trim(),
+      excerpt: excerpt.trim()
+    };
+    return canPublish(articleData);
+  }, [title, content, excerpt]);
+
+  // 保存草稿
+  const handleSaveDraft = useCallback(async () => {
     if (!title.trim()) {
       alert('请输入文章标题');
       return;
@@ -91,17 +103,12 @@ export default function ArticleEditor({
       return;
     }
 
-    // 修正发布状态逻辑：
-    // - isDraft=true: 保存为草稿 (published=false)
-    // - isDraft=false: 发布文章 (published=true)
-    const publishStatus = !isDraft;
-
-    console.log('保存文章数据:', {
+    console.log('保存草稿:', {
       title: title.trim(),
       content: content.trim(),
       excerpt: excerpt.trim(),
       tags,
-      published: publishStatus
+      published: false
     });
 
     await onSave({
@@ -109,9 +116,55 @@ export default function ArticleEditor({
       content: content.trim(),
       excerpt: excerpt.trim(),
       tags,
-      published: publishStatus
+      published: false
     });
   }, [title, content, excerpt, tags, onSave]);
+
+  // 发布文章
+  const handlePublish = useCallback(async () => {
+    const { allowed, reason } = canPublishArticle();
+    if (!allowed) {
+      alert(`无法发布文章：${reason}`);
+      return;
+    }
+
+    console.log('发布文章:', {
+      title: title.trim(),
+      content: content.trim(),
+      excerpt: excerpt.trim(),
+      tags,
+      published: true
+    });
+
+    await onSave({
+      title: title.trim(),
+      content: content.trim(),
+      excerpt: excerpt.trim(),
+      tags,
+      published: true
+    });
+  }, [title, content, excerpt, tags, onSave, canPublishArticle]);
+
+  // 处理发布确认
+  const handlePublishClick = useCallback(() => {
+    const { allowed, reason } = canPublishArticle();
+    if (!allowed) {
+      alert(`无法发布文章：${reason}`);
+      return;
+    }
+    setShowPublishConfirm(true);
+  }, [canPublishArticle]);
+
+  // 确认发布
+  const confirmPublish = useCallback(() => {
+    setShowPublishConfirm(false);
+    handlePublish();
+  }, [handlePublish]);
+
+  // 取消发布
+  const cancelPublish = useCallback(() => {
+    setShowPublishConfirm(false);
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto p-3 sm:p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -247,20 +300,45 @@ export default function ArticleEditor({
 
       {/* 发布状态 */}
       <div className="mb-6">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={published}
-            onChange={(e) => setPublished(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-          />
-          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-            立即发布文章
-          </span>
-        </label>
-        <p className="text-xs text-gray-500 mt-1">
-          未勾选时将保存为草稿
-        </p>
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            文章状态
+          </h3>
+          
+          {/* 状态指示器 */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              当前状态：
+            </span>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              published 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+            }`}>
+              {published ? '已发布' : '草稿'}
+            </span>
+          </div>
+
+          {/* 发布状态切换 */}
+          <div className="space-y-2">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={published}
+                onChange={(e) => setPublished(e.target.checked)}
+                className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              />
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                发布文章
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {published 
+                ? '文章将保存为已发布状态，仅作者可见' 
+                : '文章将保存为草稿，仅作者可见'}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* 操作按钮 */}
@@ -281,7 +359,7 @@ export default function ArticleEditor({
         <div className="space-x-3">
           <button
             type="button"
-            onClick={() => handleSave(true)}
+            onClick={handleSaveDraft}
             disabled={saving}
             className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
@@ -290,14 +368,44 @@ export default function ArticleEditor({
           
           <button
             type="button"
-            onClick={() => handleSave(false)}
+            onClick={handlePublishClick}
             disabled={saving}
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
           >
-            {saving ? '保存中...' : (mode === 'edit' ? '发布文章' : '发布文章')}
+            {saving ? '保存中...' : (mode === 'edit' ? '更新并发布' : '发布文章')}
           </button>
         </div>
       </div>
+
+      {/* 发布确认对话框 */}
+      {showPublishConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              确认发布文章
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              文章将保存为已发布状态。请确保内容完整且符合规范。
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={cancelPublish}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmPublish}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                确认发布
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

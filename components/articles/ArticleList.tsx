@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import ArticleCard from '@/components/articles/ArticleCard';
+import { buildSearchUrl } from '@/lib/search-utils';
 
 interface Article {
   id: string;
@@ -50,8 +51,8 @@ export default function ArticleList({
 
       let url = `/api/articles?page=${pageNum}&limit=${limit}`;
       
-      if (showUserOnly && user) {
-        url += `&userId=${user.id}`;
+      // 现在系统只允许用户查看自己的文章，所以总是使用用户ID
+      if (user) {
         if (showUnpublished) {
           // 只获取草稿文章
           url += `&published=false`;
@@ -59,9 +60,6 @@ export default function ArticleList({
           // 只获取已发布文章
           url += `&published=true`;
         }
-      } else if (!showUserOnly) {
-        // 只获取公开发布的文章
-        url += `&published=true`;
       }
 
       const headers: Record<string, string> = {};
@@ -246,8 +244,9 @@ export default function ArticleList({
           <ArticleCard
             key={article.id}
             article={article}
-            showActions={showUserOnly && user?.id === article.author_email} // 简单的权限检查
+            showActions={showUserOnly} // 现在总是显示操作按钮，因为用户只能看到自己的文章
             onDelete={() => handleDeleteArticle(article.id)}
+            searchQuery={searchQuery} // 传递搜索关键词用于定位
           />
         ))}
       </div>

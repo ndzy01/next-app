@@ -1,4 +1,5 @@
 import pool from './db';
+import { ArticleStatus, booleanToStatus, statusToBoolean, validateStatusTransition } from './article-status';
 
 export interface Article {
   id: string;
@@ -9,6 +10,7 @@ export interface Article {
   published: boolean;
   created_at: Date;
   updated_at: Date;
+  status?: ArticleStatus; // 新增状态字段
 }
 
 export interface ArticleWithAuthor extends Article {
@@ -47,7 +49,16 @@ export async function createArticle(articleData: CreateArticleData): Promise<Art
     [user_id, title, content, excerpt, published]
   );
   
-  return result.rows[0];
+  const article = result.rows[0];
+  
+  // 记录状态历史
+  if (published) {
+    await recordStatusHistory(article.id, user_id, ArticleStatus.DRAFT, ArticleStatus.PUBLISHED, '创建时发布');
+  } else {
+    await recordStatusHistory(article.id, user_id, ArticleStatus.DRAFT, ArticleStatus.DRAFT, '创建为草稿');
+  }
+  
+  return article;
 }
 
 // 根据ID获取文章（包含作者信息）
@@ -83,8 +94,8 @@ export async function getArticleByIdWithPermission(id: string, userId?: string):
 
   const article = result.rows[0];
   
-  // 如果文章未发布，只有作者可以访问
-  if (!article.published && (!userId || article.user_id !== userId)) {
+  // 只有作者可以访问自己的文章（无论是否发布）
+  if (!userId || article.user_id !== userId) {
     return null;
   }
   
@@ -94,12 +105,24 @@ export async function getArticleByIdWithPermission(id: string, userId?: string):
 // 更新文章
 export async function updateArticle(id: string, userId: string, updates: UpdateArticleData): Promise<Article> {
   // 验证文章归属
-  const ownership = await pool.query('SELECT user_id FROM articles WHERE id = $1', [id]);
+  const ownership = await pool.query('SELECT user_id, published FROM articles WHERE id = $1', [id]);
   if (ownership.rows.length === 0) {
     throw new Error('文章不存在');
   }
   if (ownership.rows[0].user_id !== userId) {
     throw new Error('没有权限编辑此文章');
+  }
+
+  const currentPublished = ownership.rows[0].published;
+  const currentStatus = booleanToStatus(currentPublished);
+  
+  // 检查状态转换是否允许
+  if (updates.published !== undefined) {
+    const newStatus = booleanToStatus(updates.published);
+    const validationError = validateStatusTransition(currentStatus, newStatus, updates);
+    if (validationError) {
+      throw new Error(validationError);
+    }
   }
 
   const fields = [];
@@ -135,7 +158,15 @@ export async function updateArticle(id: string, userId: string, updates: UpdateA
     values
   );
 
-  return result.rows[0];
+  const updatedArticle = result.rows[0];
+  
+  // 记录状态历史
+  if (updates.published !== undefined && updates.published !== currentPublished) {
+    const newStatus = booleanToStatus(updates.published);
+    await recordStatusHistory(id, userId, currentStatus, newStatus, '手动更新状态');
+  }
+  
+  return updatedArticle;
 }
 
 // 删除文章
@@ -168,34 +199,34 @@ export async function getUserArticles(userId: string, published?: boolean): Prom
   return result.rows;
 }
 
-// 获取公开文章列表（分页）
-export async function getPublishedArticles(limit: number = 20, offset: number = 0): Promise<ArticleWithAuthor[]> {
+// 获取公开文章列表（分页）- 现在这个函数应该只返回当前用户的文章
+export async function getPublishedArticles(userId: string, limit: number = 20, offset: number = 0): Promise<ArticleWithAuthor[]> {
   const result = await pool.query(
     `SELECT a.*, u.name as author_name, u.email as author_email
      FROM articles a
      JOIN users u ON a.user_id = u.id
-     WHERE a.published = true
+     WHERE a.user_id = $1 AND a.published = true
      ORDER BY a.created_at DESC
-     LIMIT $1 OFFSET $2`,
-    [limit, offset]
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset]
   );
 
   return result.rows;
 }
 
-// 全文搜索文章
-export async function searchArticles(query: string, limit: number = 10): Promise<SearchResult[]> {
+// 全文搜索文章 - 现在只搜索当前用户的文章
+export async function searchArticles(userId: string, query: string, limit: number = 10): Promise<SearchResult[]> {
   const result = await pool.query(
     `SELECT a.*, u.name as author_name, u.email as author_email,
             ts_rank(a.search_vector, plainto_tsquery('english', $1)) as rank,
             ts_headline('english', a.content, plainto_tsquery('english', $1), 'MaxWords=20, MinWords=5') as highlight
      FROM articles a
      JOIN users u ON a.user_id = u.id
-     WHERE a.published = true 
+     WHERE a.user_id = $3 AND a.published = true 
        AND a.search_vector @@ plainto_tsquery('english', $1)
      ORDER BY rank DESC, a.created_at DESC
      LIMIT $2`,
-    [query, limit]
+    [query, limit, userId]
   );
 
   return result.rows;
@@ -288,4 +319,75 @@ export async function getArticlesCount(published?: boolean): Promise<number> {
 
   const result = await pool.query(query, params);
   return parseInt(result.rows[0].count);
+}
+
+// 记录状态历史
+export async function recordStatusHistory(
+  articleId: string,
+  userId: string,
+  fromStatus: ArticleStatus,
+  toStatus: ArticleStatus,
+  reason?: string
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO article_status_history (article_id, from_status, to_status, changed_by, reason)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [articleId, fromStatus, toStatus, userId, reason]
+  );
+}
+
+// 获取文章状态历史
+export async function getArticleStatusHistory(articleId: string): Promise<any[]> {
+  const result = await pool.query(
+    `SELECT ash.*, u.name as changed_by_name
+     FROM article_status_history ash
+     JOIN users u ON ash.changed_by = u.id
+     WHERE ash.article_id = $1
+     ORDER BY ash.created_at DESC`,
+    [articleId]
+  );
+  
+  return result.rows;
+}
+
+// 更改文章状态
+export async function changeArticleStatus(
+  articleId: string,
+  userId: string,
+  newStatus: ArticleStatus,
+  reason?: string
+): Promise<Article> {
+  // 验证文章归属
+  const ownership = await pool.query('SELECT user_id, published FROM articles WHERE id = $1', [articleId]);
+  if (ownership.rows.length === 0) {
+    throw new Error('文章不存在');
+  }
+  if (ownership.rows[0].user_id !== userId) {
+    throw new Error('没有权限编辑此文章');
+  }
+
+  const currentPublished = ownership.rows[0].published;
+  const currentStatus = booleanToStatus(currentPublished);
+  const newPublished = statusToBoolean(newStatus);
+
+  // 检查状态转换是否允许
+  const validationError = validateStatusTransition(currentStatus, newStatus);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  // 更新文章状态
+  const result = await pool.query(
+    `UPDATE articles SET published = $1 
+     WHERE id = $2
+     RETURNING id, user_id, title, content, excerpt, published, created_at, updated_at`,
+    [newPublished, articleId]
+  );
+
+  const updatedArticle = result.rows[0];
+  
+  // 记录状态历史
+  await recordStatusHistory(articleId, userId, currentStatus, newStatus, reason);
+  
+  return updatedArticle;
 }

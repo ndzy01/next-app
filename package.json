@@ -7,15 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:ui": "playwright test --ui",
-    "test:debug": "playwright test --debug",
-    "test:report": "playwright show-report",
-    "test:core": "playwright test tests/core-functionality.spec.ts",
-    "test:api": "playwright test tests/api.spec.ts",
-    "test:ci": "playwright test tests/ci-quick.spec.ts",
-    "test:auth": "playwright test tests/auth.spec.ts"
+    "test": "playwright test"
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",

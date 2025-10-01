@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Calendar, User, Edit, Trash2, Eye } from 'lucide-react';
+import { buildSearchUrl } from '@/lib/search-utils';
 
 interface Article {
   id: string;
@@ -22,12 +23,14 @@ interface ArticleCardProps {
   article: Article;
   showActions?: boolean;
   onDelete?: () => void;
+  searchQuery?: string;
 }
 
 export default function ArticleCard({
   article,
   showActions = false,
-  onDelete
+  onDelete,
+  searchQuery = ''
 }: ArticleCardProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('zh-CN', {
@@ -47,15 +50,15 @@ export default function ArticleCard({
       <div className="p-4 sm:p-6">
         {/* 文章标题和状态 */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4">
-          <div className="flex-1 mb-3 sm:mb-0">
-            <Link 
-              href={`/articles/${article.id}`}
-              className="block group"
-            >
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-tight">
-                {article.title}
-              </h2>
-            </Link>
+        <div className="flex-1 mb-3 sm:mb-0">
+          <Link 
+            href={searchQuery ? buildSearchUrl(`/articles/${article.id}`, searchQuery) : `/articles/${article.id}`}
+            className="block group"
+          >
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-tight">
+              {article.title}
+            </h2>
+          </Link>
             
             {/* 发布状态标识 */}
             {!article.published && (
@@ -69,7 +72,7 @@ export default function ArticleCard({
           {showActions && (
             <div className="flex items-center space-x-1 sm:space-x-2 self-start sm:ml-4">
               <Link
-                href={`/articles/${article.id}`}
+                href={searchQuery ? buildSearchUrl(`/articles/${article.id}`, searchQuery) : `/articles/${article.id}`}
                 className="p-2 sm:p-2 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="查看文章"
               >
