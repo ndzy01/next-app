@@ -99,7 +99,7 @@ export default function SearchLocation({ keyword, onClose }: SearchLocationProps
           关键词：
         </p>
         <p className="text-sm font-medium text-gray-900 dark:text-white bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 rounded">
-          "{keyword}"
+          &quot;{keyword}&quot;
         </p>
       </div>
 

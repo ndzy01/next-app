@@ -8,7 +8,7 @@ import { ArrowLeft, Edit, Trash2, Calendar, User, EyeOff, Share2 } from 'lucide-
 import { MdPreview } from 'md-editor-rt';
 import 'md-editor-rt/lib/preview.css';
 import SearchLocation from '@/components/articles/SearchLocation';
-import { parseSearchParams, shouldPerformSearchLocation, performSearchLocation } from '@/lib/search-utils';
+import { performSearchLocation } from '@/lib/search-utils';
 
 interface Article {
   id: string;
@@ -44,6 +44,34 @@ export default function ArticleDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [highlightedContent, setHighlightedContent] = useState<string>('');
   const [showSearchLocation, setShowSearchLocation] = useState(false);
+
+  // 转义正则表达式特殊字符
+  const escapeRegExp = useCallback((string: string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }, []);
+
+  // 搜索高亮处理
+  const highlightSearchResults = useCallback((content: string, query: string) => {
+    if (!query) {
+      setHighlightedContent(content);
+      return;
+    }
+
+    // 使用简单的正则表达式高亮
+    const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+    const highlighted = content.replace(regex, '<mark class="search-highlight">$1</mark>');
+    setHighlightedContent(highlighted);
+    
+    // 显示搜索定位组件
+    if (shouldHighlight) {
+      setShowSearchLocation(true);
+      
+      // 延迟执行搜索定位，确保DOM已渲染
+      setTimeout(() => {
+        performSearchLocation(query);
+      }, 1000);
+    }
+  }, [escapeRegExp, shouldHighlight]);
 
   // 获取文章详情
   const fetchArticle = useCallback(async () => {
@@ -83,35 +111,9 @@ export default function ArticleDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [articleId, searchKeyword]);
+  }, [articleId, searchKeyword, highlightSearchResults]);
 
-  // 搜索高亮处理
-  const highlightSearchResults = (content: string, query: string) => {
-    if (!query) {
-      setHighlightedContent(content);
-      return;
-    }
 
-    // 使用简单的正则表达式高亮
-    const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
-    const highlighted = content.replace(regex, '<mark class="search-highlight">$1</mark>');
-    setHighlightedContent(highlighted);
-    
-    // 显示搜索定位组件
-    if (shouldHighlight) {
-      setShowSearchLocation(true);
-      
-      // 延迟执行搜索定位，确保DOM已渲染
-      setTimeout(() => {
-        performSearchLocation(query);
-      }, 1000);
-    }
-  };
-
-  // 转义正则表达式特殊字符
-  const escapeRegExp = (string: string) => {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  };
 
   // 删除文章
   const handleDelete = async () => {

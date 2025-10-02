@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { MdEditor } from 'md-editor-rt';
 import 'md-editor-rt/lib/style.css';
-import { ArticleStatus, booleanToStatus, canPublish } from '@/lib/article-status';
+import { canPublish } from '@/lib/article-status';
 
 interface ArticleEditorProps {
   title?: string;
@@ -85,12 +85,13 @@ export default function ArticleEditor({
   // 检查是否可以发布
   const canPublishArticle = useCallback(() => {
     const articleData = {
+      id: 'temp-id', // 对于发布检查，临时ID即可
       title: title.trim(),
       content: content.trim(),
-      excerpt: excerpt.trim()
+      published: false
     };
     return canPublish(articleData);
-  }, [title, content, excerpt]);
+  }, [title, content]);
 
   // 保存草稿
   const handleSaveDraft = useCallback(async () => {

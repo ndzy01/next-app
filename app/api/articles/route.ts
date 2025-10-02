@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { createArticle, getUserArticles } from '@/lib/article';
+import { createArticle, getUserArticles, getUserArticlesTotalCount } from '@/lib/article';
 import { setArticleTagsByNames } from '@/lib/tag';
 import { initBlogDatabase } from '@/lib/init-blog-db';
 
@@ -30,14 +30,21 @@ export async function GET(request: NextRequest) {
     // 用户只能获取自己的文章
     const currentUserId = payload.userId;
     const publishedFilter = published === 'true' ? true : published === 'false' ? false : undefined;
-    const articles = await getUserArticles(currentUserId, publishedFilter);
+    
+    // 计算offset
+    const offset = (page - 1) * limit;
+    
+    // 获取分页数据和总数（使用单个查询获取总数）
+    const articles = await getUserArticles(currentUserId, publishedFilter, limit, offset);
+    const totalResult = await getUserArticlesTotalCount(currentUserId, publishedFilter);
+    const total = totalResult;
 
     return NextResponse.json({
       articles,
       pagination: {
         page,
         limit,
-        total: articles.length
+        total
       }
     });
   } catch (error) {

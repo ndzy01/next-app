@@ -4,11 +4,18 @@ export enum ArticleStatus {
   ARCHIVED = 'archived'
 }
 
+interface ArticleForValidation {
+  id: string;
+  title: string;
+  content: string;
+  published: boolean;
+}
+
 export interface ArticleStatusTransition {
   from: ArticleStatus;
   to: ArticleStatus;
   allowed: boolean;
-  validation?: ((article: any) => string | null) | null;
+  validation?: ((article: ArticleForValidation) => string | null) | null;
 }
 
 export interface ArticleStatusHistory {
@@ -70,7 +77,7 @@ export const STATUS_TRANSITIONS: ArticleStatusTransition[] = [
 export function validateStatusTransition(
   fromStatus: ArticleStatus,
   toStatus: ArticleStatus,
-  article?: any
+  article?: ArticleForValidation
 ): string | null {
   const transition = STATUS_TRANSITIONS.find(
     t => t.from === fromStatus && t.to === toStatus
@@ -112,7 +119,7 @@ export function getStatusColor(status: ArticleStatus): string {
 }
 
 // 检查是否允许发布
-export function canPublish(article: any): { allowed: boolean; reason?: string } {
+export function canPublish(article: ArticleForValidation): { allowed: boolean; reason?: string } {
   const reason = validateStatusTransition(ArticleStatus.DRAFT, ArticleStatus.PUBLISHED, article);
   return {
     allowed: reason === null,

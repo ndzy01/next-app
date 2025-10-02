@@ -1,11 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArticleStatus, getStatusDisplayName, getStatusColor, canPublish } from '@/lib/article-status';
+import { ArticleStatus, getStatusDisplayName, canPublish } from '@/lib/article-status';
+
+interface ArticleProps {
+  id: string;
+  title: string;
+  published: boolean;
+}
 
 interface ArticleStatusProps {
   currentStatus: ArticleStatus;
-  article?: any;
+  article?: ArticleProps;
   onStatusChange?: (newStatus: ArticleStatus) => void;
   disabled?: boolean;
 }

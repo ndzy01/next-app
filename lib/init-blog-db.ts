@@ -1,6 +1,17 @@
 import pool from './db';
 
+let isInitialized = false;
+
+export function resetBlogDbInitFlag() {
+  isInitialized = false;
+}
+
 export async function initBlogDatabase() {
+  if (isInitialized) {
+    console.log('Blog database already initialized, skipping...');
+    return;
+  }
+
   try {
     console.log('Initializing blog database tables...');
 
@@ -37,53 +48,9 @@ export async function initBlogDatabase() {
       )
     `);
 
-    // 创建文章状态历史表
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS article_status_history (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        article_id UUID NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
-        from_status VARCHAR(20) NOT NULL,
-        to_status VARCHAR(20) NOT NULL,
-        changed_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        reason TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
 
-    // 为文章表创建更新时间触发器
-    await pool.query(`
-      DROP TRIGGER IF EXISTS update_articles_updated_at ON articles;
-      CREATE TRIGGER update_articles_updated_at
-        BEFORE UPDATE ON articles
-        FOR EACH ROW
-        EXECUTE FUNCTION update_updated_at_column();
-    `);
 
-    // 创建搜索向量更新函数
-    await pool.query(`
-      CREATE OR REPLACE FUNCTION update_article_search_vector()
-      RETURNS TRIGGER AS $$
-      BEGIN
-        NEW.search_vector = to_tsvector('english', coalesce(NEW.title, '') || ' ' || coalesce(NEW.content, '') || ' ' || coalesce(NEW.excerpt, ''));
-        RETURN NEW;
-      END;
-      $$ language 'plpgsql';
-    `);
-
-    // 为文章表创建搜索向量更新触发器
-    await pool.query(`
-      DROP TRIGGER IF EXISTS update_articles_search_vector ON articles;
-      CREATE TRIGGER update_articles_search_vector
-        BEFORE INSERT OR UPDATE ON articles
-        FOR EACH ROW
-        EXECUTE FUNCTION update_article_search_vector();
-    `);
-
-    // 创建索引
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS articles_search_idx ON articles USING GIN(search_vector);
-    `);
-    
+    // 创建基础索引（简化版）
     await pool.query(`
       CREATE INDEX IF NOT EXISTS articles_user_id_idx ON articles(user_id);
     `);
@@ -96,15 +63,10 @@ export async function initBlogDatabase() {
       CREATE INDEX IF NOT EXISTS articles_created_at_idx ON articles(created_at DESC);
     `);
     
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS article_status_history_article_id_idx ON article_status_history(article_id);
-    `);
-    
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS article_status_history_created_at_idx ON article_status_history(created_at DESC);
-    `);
+
 
     console.log('Blog database tables initialized successfully');
+    isInitialized = true;
   } catch (error) {
     console.error('Error initializing blog database:', error);
     throw error;

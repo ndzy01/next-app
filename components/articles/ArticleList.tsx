@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import ArticleCard from '@/components/articles/ArticleCard';
-import { buildSearchUrl } from '@/lib/search-utils';
 
 interface Article {
   id: string;
@@ -92,7 +91,7 @@ export default function ArticleList({
     } finally {
       setLoading(false);
     }
-  }, [limit, showUserOnly, user, showUnpublished]);
+  }, [limit, user, showUnpublished]);
 
   // 搜索文章
   const searchArticles = useCallback(async () => {

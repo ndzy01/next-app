@@ -1,5 +1,5 @@
 import pool from './db';
-import { ArticleStatus, booleanToStatus, statusToBoolean, validateStatusTransition } from './article-status';
+import { ArticleStatus, booleanToStatus, statusToBoolean, validateStatusTransition, ArticleStatusHistory } from './article-status';
 
 export interface Article {
   id: string;
@@ -50,13 +50,6 @@ export async function createArticle(articleData: CreateArticleData): Promise<Art
   );
   
   const article = result.rows[0];
-  
-  // 记录状态历史
-  if (published) {
-    await recordStatusHistory(article.id, user_id, ArticleStatus.DRAFT, ArticleStatus.PUBLISHED, '创建时发布');
-  } else {
-    await recordStatusHistory(article.id, user_id, ArticleStatus.DRAFT, ArticleStatus.DRAFT, '创建为草稿');
-  }
   
   return article;
 }
@@ -184,9 +177,9 @@ export async function deleteArticle(id: string, userId: string): Promise<void> {
 }
 
 // 获取用户文章
-export async function getUserArticles(userId: string, published?: boolean): Promise<Article[]> {
+export async function getUserArticles(userId: string, published?: boolean, limit?: number, offset?: number): Promise<Article[]> {
   let query = 'SELECT * FROM articles WHERE user_id = $1';
-  const params: (string | boolean)[] = [userId];
+  const params: (string | number | boolean)[] = [userId];
 
   if (published !== undefined) {
     query += ' AND published = $2';
@@ -195,8 +188,34 @@ export async function getUserArticles(userId: string, published?: boolean): Prom
 
   query += ' ORDER BY created_at DESC';
 
+  if (limit !== undefined) {
+    const paramIndex = params.length + 1;
+    query += ` LIMIT $${paramIndex}`;
+    params.push(limit);
+    
+    if (offset !== undefined) {
+      const offsetParamIndex = params.length + 1;
+      query += ` OFFSET $${offsetParamIndex}`;
+      params.push(offset);
+    }
+  }
+
   const result = await pool.query(query, params);
   return result.rows;
+}
+
+// 获取用户文章总数
+export async function getUserArticlesTotalCount(userId: string, published?: boolean): Promise<number> {
+  let query = 'SELECT COUNT(*) FROM articles WHERE user_id = $1';
+  const params: (string | boolean)[] = [userId];
+
+  if (published !== undefined) {
+    query += ' AND published = $2';
+    params.push(published);
+  }
+
+  const result = await pool.query(query, params);
+  return parseInt(result.rows[0].count);
 }
 
 // 获取公开文章列表（分页）- 现在这个函数应该只返回当前用户的文章
@@ -337,7 +356,7 @@ export async function recordStatusHistory(
 }
 
 // 获取文章状态历史
-export async function getArticleStatusHistory(articleId: string): Promise<any[]> {
+export async function getArticleStatusHistory(articleId: string): Promise<ArticleStatusHistory[]> {
   const result = await pool.query(
     `SELECT ash.*, u.name as changed_by_name
      FROM article_status_history ash
