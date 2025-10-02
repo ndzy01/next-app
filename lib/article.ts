@@ -97,22 +97,35 @@ export async function getArticleByIdWithPermission(id: string, userId?: string):
 
 // 更新文章
 export async function updateArticle(id: string, userId: string, updates: UpdateArticleData): Promise<Article> {
-  // 验证文章归属
-  const ownership = await pool.query('SELECT user_id, published FROM articles WHERE id = $1', [id]);
-  if (ownership.rows.length === 0) {
+  // 验证文章归属并获取当前文章数据
+  const ownershipResult = await pool.query(
+    'SELECT user_id, published, title, content FROM articles WHERE id = $1', 
+    [id]
+  );
+  if (ownershipResult.rows.length === 0) {
     throw new Error('文章不存在');
   }
-  if (ownership.rows[0].user_id !== userId) {
+  if (ownershipResult.rows[0].user_id !== userId) {
     throw new Error('没有权限编辑此文章');
   }
 
-  const currentPublished = ownership.rows[0].published;
+  const currentData = ownershipResult.rows[0];
+  const currentPublished = currentData.published;
   const currentStatus = booleanToStatus(currentPublished);
   
   // 检查状态转换是否允许
   if (updates.published !== undefined) {
     const newStatus = booleanToStatus(updates.published);
-    const validationError = validateStatusTransition(currentStatus, newStatus, updates);
+    
+    // 构建用于验证的文章数据（合并当前数据和更新数据）
+    const articleForValidation = {
+      id,
+      title: updates.title !== undefined ? updates.title : currentData.title,
+      content: updates.content !== undefined ? updates.content : currentData.content,
+      published: updates.published
+    };
+    
+    const validationError = validateStatusTransition(currentStatus, newStatus, articleForValidation);
     if (validationError) {
       throw new Error(validationError);
     }

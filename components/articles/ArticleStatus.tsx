@@ -6,6 +6,7 @@ import { ArticleStatus, getStatusDisplayName, canPublish } from '@/lib/article-s
 interface ArticleProps {
   id: string;
   title: string;
+  content: string;
   published: boolean;
 }
 
@@ -41,6 +42,10 @@ export default function ArticleStatusComponent({
 
   const handleStatusChange = (newStatus: ArticleStatus) => {
     if (newStatus === ArticleStatus.PUBLISHED) {
+      if (!article) {
+        alert('无法发布文章：文章信息不完整');
+        return;
+      }
       const { allowed, reason } = canPublish(article);
       if (!allowed) {
         alert(`无法发布文章：${reason}`);
